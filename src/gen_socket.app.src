@@ -1,0 +1,9 @@
+{application, gen_socket, [
+    {description, "generic socket toolkit"},
+    {vsn, "0.1"},
+    {modules, []},
+    {registered, []},
+    {applications, [kernel, stdlib]},
+    {env, []}
+]}.
+
