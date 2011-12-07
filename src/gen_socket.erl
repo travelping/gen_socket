@@ -49,7 +49,8 @@
          bind/2,
          ioctl/3,
          setsockopt/4,
-         setsockoption/4
+         setsockoption/4,
+		 sockaddr_unix/1
     ]).
 -export([progname/0]).
 -export([family/1, type/1, protocol/1, arphdr/1]).
@@ -140,6 +141,19 @@ setsockoption(Socket, Level, OptName, Val) when is_atom(Val) ->
     setsockoption(Socket, Level, OptName, enc_opt(Val));
 setsockoption(Socket, Level, OptName, Val) when is_integer(Val) ->
     setsockopt(Socket, Level, OptName, << Val:32/native >>).
+
+sockaddr_unix(Path) ->
+	UnixPath = iolist_to_binary(Path),
+	P = case size(UnixPath) of
+			I when I > ?UNIX_PATH_MAX ->
+				<<Short:?UNIX_PATH_MAX/bytes, _/binary>> = UnixPath,
+				Short;
+			I ->
+				PadLen = ?UNIX_PATH_MAX - I,
+				<<UnixPath/binary, 0:PadLen/unit:8>>
+		end,
+	Family = gen_socket:family(unix),
+	<<Family:16/native, P/binary>>.
 
 progname() ->
     filename:join([
