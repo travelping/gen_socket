@@ -1,4 +1,4 @@
-%% Copyright (c) 2010, Travelping GmbH <info@travelping.com
+%% Copyright (c) 2010-2012, Travelping GmbH <info@travelping.com
 %% All rights reserved.
 %%  
 %% based on procket:

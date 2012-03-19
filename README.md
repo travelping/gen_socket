@@ -1,4 +1,4 @@
-gent_socket
+gen_socket
 ===========
 
 gen_socket is an Erlang socket interface which can be used to create
@@ -10,6 +10,11 @@ Existing use cases are:
 
 In all cases a special file descriptor is created and passed to the
 gen_tcp/gen_udp driver for further handling
+
+*WARNING*: pre R15, it was possible to create a non-INET socket and
+	   have gen_udp work on it. With R15 the check rules in
+	   fdopen() have been tightened to prevent this kind of
+	   trickery.
 
 COMPILING
 ---------
