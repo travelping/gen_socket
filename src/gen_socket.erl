@@ -60,15 +60,23 @@
 %%
 %% grep define include/gen_socket.hrl | awk -F"[(,]" '{ printf "enc_opt(%s)%*s ?%s;\n", tolower($2), 32 - length($2), "->", $2 }
 %%
-enc_opt(sol_socket)                    -> ?SOL_SOCKET;
-enc_opt(so_debug)                      -> ?SO_DEBUG;
-enc_opt(so_reuseaddr)                  -> ?SO_REUSEADDR;
-enc_opt(so_type)                       -> ?SO_TYPE;
-enc_opt(so_error)                      -> ?SO_ERROR;
-enc_opt(so_dontroute)                  -> ?SO_DONTROUTE;
-enc_opt(so_broadcast)                  -> ?SO_BROADCAST;
-enc_opt(so_sndbuf)                     -> ?SO_SNDBUF;
-enc_opt(so_rcvbuf)                     -> ?SO_RCVBUF.
+enc_opt(sol_socket)	-> ?SOL_SOCKET;
+enc_opt(so_debug)	-> ?SO_DEBUG;
+enc_opt(so_reuseaddr)	-> ?SO_REUSEADDR;
+enc_opt(so_type)	-> ?SO_TYPE;
+enc_opt(so_error)	-> ?SO_ERROR;
+enc_opt(so_dontroute)	-> ?SO_DONTROUTE;
+enc_opt(so_broadcast)	-> ?SO_BROADCAST;
+enc_opt(so_sndbuf)	-> ?SO_SNDBUF;
+enc_opt(so_rcvbuf)	-> ?SO_RCVBUF;
+enc_opt(so_sndbufforce)	-> ?SO_SNDBUFFORCE;
+enc_opt(so_rcvbufforce)	-> ?SO_RCVBUFFORCE;
+enc_opt(so_keepalive)	-> ?SO_KEEPALIVE;
+enc_opt(so_oobinline)	-> ?SO_OOBINLINE;
+enc_opt(so_no_check)	-> ?SO_NO_CHECK;
+enc_opt(so_priority)	-> ?SO_PRIORITY;
+enc_opt(so_linger)	-> ?SO_LINGER;
+enc_opt(so_bsdcompat)	-> ?SO_BSDCOMPAT.
 
 init() ->
     on_load().
