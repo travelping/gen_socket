@@ -1,11 +1,9 @@
-CFLAGS +=-fPIC -I. $(shell erl -noinput -eval 'io:format("-I~s -I~s/erts-~s/include", [code:lib_dir(erl_interface, include), code:root_dir(), erlang:system_info(version)]), halt(0).')
+# a stub makefile for BSD make.
+# just redirect to GNU make, which is commonly available as "gmake".
 
-all: ../priv/lib/gen_socket.so 
+TARGETS=all clean
 
-clean: 
-	rm -f ../priv/lib/*.so
-	rm -f *.o
-
-../priv/lib/gen_socket.so: gen_socket.o
-	(test -d ../priv/lib || mkdir -p ../priv/lib)
-	$(CC) $(LDFLAGS) -fPIC -shared -lei -lerl_interface gen_socket.o -o ../priv/lib/gen_socket.so
+.for T in ${TARGETS}
+${T}:
+	@gmake ${T}
+.endfor

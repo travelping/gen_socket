@@ -35,6 +35,13 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
+#include <sys/socket.h>
+
+#include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
+
 #include "erl_nif.h"
 #include "erl_driver.h"
 #include "gen_socket.h"
