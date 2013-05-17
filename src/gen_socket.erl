@@ -147,6 +147,7 @@ shutdown(Socket, read_write) when ?IS_SOCKET(Socket) ->
 shutdown(Socket, How) ->
     error(badarg, [Socket, How]).
 
+-spec socket(term(), term(), term()) -> {ok, socket()} | {error, term()}.
 socket(Family, Type, Protocol) when is_atom(Family) ->
     socket(family(Family), Type, Protocol);
 socket(Family, Type, Protocol) when is_atom(Type) ->
@@ -162,7 +163,7 @@ socket(Family, Type, Protocol) when is_integer(Family), is_integer(Type), is_int
 	    Port = open_port({spawn_driver, CmdStr}, [binary]),
 	    Socket = #gen_socket{port = Port, fd = Fd, family = Family, type = Type, protocol = Protocol},
 	    erlang:port_call(Port, ?GS_CALL_SETSOCKET, Socket),
-	    Socket;
+	    {ok, Socket};
 	Error ->
 	    Error
     end;
