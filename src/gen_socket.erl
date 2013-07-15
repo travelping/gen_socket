@@ -34,7 +34,7 @@
 
 -on_load(init/0).
 
--export([controlling_process/2, socket/3, getsocktype/1,
+-export([controlling_process/2, socket/3, socketat/4, getsocktype/1,
 	 getsockopt/3, getsockopt/4, setsockopt/4,
          getsockname/1, getpeername/1, bind/2, connect/2, accept/1,
 	 input_event/2, output_event/2,
@@ -169,6 +169,31 @@ socket(Family, Type, Protocol) when is_integer(Family), is_integer(Type), is_int
     end;
 socket(Family, Type, Protocol) ->
     error(badarg, [Family, Type, Protocol]).
+
+-spec socketat(term(), term(), term(), term()) -> {ok, socket()} | {error, term()}.
+socketat(NetNsFile, Family, Type, Protocol) when is_list(NetNsFile) ->
+    socketat(iolist_to_binary(NetNsFile), Family, Type, Protocol);
+socketat(NetNsFile, Family, Type, Protocol) when is_atom(Family) ->
+    socketat(NetNsFile, family(Family), Type, Protocol);
+socketat(NetNsFile, Family, Type, Protocol) when is_atom(Type) ->
+    socketat(NetNsFile, Family, type(Type), Protocol);
+socketat(NetNsFile, Family, Type, Protocol) when is_atom(Protocol) ->
+    socketat(NetNsFile, Family, Type, protocol(Protocol));
+socketat(NetNsFile, Family, Type, Protocol) when is_binary(NetNsFile), is_integer(Family), is_integer(Type), is_integer(Protocol) ->
+    ok     = init(), %% TODO: make this unnecessary by fixing the on_load handler
+
+    case nif_socketat(NetNsFile, Family, Type, Protocol) of
+	{ok, Fd} ->
+	    CmdStr = lists:flatten(io_lib:format("gen_socket ~w", [Fd])),
+	    Port = open_port({spawn_driver, CmdStr}, [binary]),
+	    Socket = #gen_socket{port = Port, fd = Fd, family = Family, type = Type, protocol = Protocol},
+	    erlang:port_call(Port, ?GS_CALL_SETSOCKET, Socket),
+	    {ok, Socket};
+	Error ->
+	    Error
+    end;
+socketat(NetNsFile, Family, Type, Protocol) ->
+    error(badarg, [NetNsFile, Family, Type, Protocol]).
 
 %% @doc Get the family, type, and protocol of a socket.
 getsocktype(#gen_socket{family = Family, type = Type, protocol = Protocol}) ->
@@ -335,6 +360,8 @@ nif_decode_sockaddr(_Sockaddr) ->
     error(nif_not_loaded).
 
 nif_socket(_Family, _Type, _Protocol) ->
+    error(nif_not_loaded).
+nif_socketat(_NetNsFile, _Family, _Type, _Protocol) ->
     error(nif_not_loaded).
 nif_close(_NifSocket) ->
     error(nif_not_loaded).
