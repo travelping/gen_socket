@@ -31,14 +31,20 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef _GNU_SOURCE
+#  define _GNU_SOURCE
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 #include <limits.h>
 #include <fcntl.h>
 #include <err.h>
+#include <sched.h>
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -383,6 +389,65 @@ nif_socket(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     s = socket(family, type, protocol);
     if (s < 0)
         return error_tuple(env, errno);
+
+    flags = fcntl(s, F_GETFL, 0);
+    flags |= O_NONBLOCK;
+    (void)fcntl(s, F_SETFL, flags);
+
+    return enif_make_tuple(env, 2,
+           atom_ok,
+           enif_make_int(env, s));
+}
+
+/*  0: netnsfile, 1: procotol, 2: type, 3: family */
+static ERL_NIF_TERM
+nif_socketat(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifBinary netnsfile;
+    int family = 0;
+    int type = 0;
+    int protocol = 0;
+    int flags = 0;
+    int s = -1;
+    int errsv;
+    char filename[PATH_MAX];
+    int nsfd = 0;
+    sigset_t intmask, oldmask;
+    int old_nsfd;
+
+    if (!enif_inspect_binary(env, argv[0], &netnsfile) ||
+	netnsfile.size > PATH_MAX -1
+	|| !enif_get_int(env, argv[1], &family)
+	|| !enif_get_int(env, argv[2], &type)
+	|| !enif_get_int(env, argv[3], &protocol))
+        return enif_make_badarg(env);
+
+    memcpy(filename, netnsfile.data, netnsfile.size);
+    filename[netnsfile.size] = '\0';
+    if ((nsfd = open(filename, O_RDONLY)) < 0)
+        return error_tuple(env, errno);
+
+    if ((old_nsfd = open("/proc/self/ns/net", O_RDONLY)) < 0) {
+	errsv = errno;
+	close(nsfd);
+        return error_tuple(env, errsv);
+    }
+
+    sigfillset(&intmask);
+    sigprocmask(SIG_BLOCK, &intmask, &oldmask);
+
+    setns(nsfd, CLONE_NEWNET);
+    s = socket(family, type, protocol);
+    errsv = errno;
+    setns(old_nsfd, CLONE_NEWNET);
+
+    sigprocmask(SIG_SETMASK, &oldmask, NULL);
+
+    close(nsfd);
+    close(old_nsfd);
+
+    if (s < 0)
+        return error_tuple(env, errsv);
 
     flags = fcntl(s, F_GETFL, 0);
     flags |= O_NONBLOCK;
@@ -823,6 +888,7 @@ static ErlNifFunc nif_funcs[] = {
     {"nif_write",           2, nif_write},
     {"nif_ioctl",           3, nif_ioctl},
     {"nif_socket",          3, nif_socket},
+    {"nif_socketat",        4, nif_socketat},
     {"nif_listen",          2, nif_listen},
     {"nif_shutdown",        2, nif_shutdown},
     {"nif_close",           1, nif_close}
