@@ -34,7 +34,8 @@
 
 -on_load(init/0).
 
--export([controlling_process/2, socket/3, socketat/4, getsocktype/1,
+-export([controlling_process/2, socket/3, socketat/4,
+	 raw_socket/3, raw_socketat/4, getsocktype/1,
 	 getsockopt/3, getsockopt/4, setsockopt/4,
          getsockname/1, getpeername/1, bind/2, connect/2, accept/1,
 	 input_event/2, output_event/2,
@@ -54,10 +55,12 @@
 
 -record(gen_socket, {port, fd, family, type, protocol}).
 
--opaque socket() :: #gen_socket{}.
+-opaque socket() :: #gen_socket{} | integer().
 -define(IS_SOCKET(Term),
 	(is_record(Term, gen_socket) andalso
 	 is_port(Term#gen_socket.port))).
+-define(IS_NIF_SOCKET(Term),
+	(?IS_SOCKET(Term) orelse is_integer(Term))).
 
 -define(IS_TIMEOUT(Term),
     ((Term == infinity) orelse (is_integer(Term) andalso Term >= 0))).
@@ -112,6 +115,7 @@ init() ->
 
 %% internal accessors
 -compile([{inline, nif_socket_of/1}, {inline, port_of/1}]).
+nif_socket_of(Fd) when is_integer(Fd) -> Fd;
 nif_socket_of(#gen_socket{fd = Fd}) -> Fd.
 port_of(#gen_socket{port = Port}) -> Port.
 
@@ -131,6 +135,8 @@ controlling_process(Socket, NewOwner) ->
     error(badarg, [Socket, NewOwner]).
 
 -spec close(socket()) -> ok.
+close(Socket) when is_integer(Socket) ->
+    nif_close(Socket);
 close(Socket) when ?IS_SOCKET(Socket) ->
     erlang:port_close(port_of(Socket)),
     nif_close(nif_socket_of(Socket));
@@ -138,61 +144,79 @@ close(Socket) ->
     error(badarg, [Socket]).
 
 -spec shutdown(socket(), read | write | read_write) -> ok.
-shutdown(Socket, read) when ?IS_SOCKET(Socket) ->
+shutdown(Socket, read) when ?IS_NIF_SOCKET(Socket) ->
     nif_shutdown(nif_socket_of(Socket), 0);
-shutdown(Socket, write) when ?IS_SOCKET(Socket) ->
+shutdown(Socket, write) when ?IS_NIF_SOCKET(Socket) ->
     nif_shutdown(nif_socket_of(Socket), 1);
-shutdown(Socket, read_write) when ?IS_SOCKET(Socket) ->
+shutdown(Socket, read_write) when ?IS_NIF_SOCKET(Socket) ->
     nif_shutdown(nif_socket_of(Socket), 2);
 shutdown(Socket, How) ->
     error(badarg, [Socket, How]).
 
 -spec socket(term(), term(), term()) -> {ok, socket()} | {error, term()}.
-socket(Family, Type, Protocol) when is_atom(Family) ->
-    socket(family(Family), Type, Protocol);
-socket(Family, Type, Protocol) when is_atom(Type) ->
-    socket(Family, type(Type), Protocol);
-socket(Family, Type, Protocol) when is_atom(Protocol) ->
-    socket(Family, Type, protocol(Protocol));
-socket(Family, Type, Protocol) when is_integer(Family), is_integer(Type), is_integer(Protocol) ->
-    ok     = init(), %% TODO: make this unnecessary by fixing the on_load handler
+socket(Family0, Type0, Protocol0) ->
+    raw_socket(Family0, Type0, Protocol0,
+	       fun(Family, Type, Protocol, Fd) ->
+		       CmdStr = lists:flatten(io_lib:format("gen_socket ~w", [Fd])),
+		       Port = open_port({spawn_driver, CmdStr}, [binary]),
+		       Socket = #gen_socket{port = Port, fd = Fd, family = Family, type = Type, protocol = Protocol},
+		       erlang:port_call(Port, ?GS_CALL_SETSOCKET, Socket),
+		       {ok, Socket}
+	       end).
 
+-spec raw_socket(term(), term(), term()) -> {ok, socket()} | {error, term()}.
+raw_socket(Family, Type, Protocol) ->
+    raw_socket(Family, Type, Protocol, fun(_,_,_,Fd) -> {ok, Fd} end).
+
+raw_socket(Family, Type, Protocol, PostFun) when is_atom(Family) ->
+    raw_socket(family(Family), Type, Protocol, PostFun);
+raw_socket(Family, Type, Protocol, PostFun) when is_atom(Type) ->
+    raw_socket(Family, type(Type), Protocol, PostFun);
+raw_socket(Family, Type, Protocol, PostFun) when is_atom(Protocol) ->
+    raw_socket(Family, Type, protocol(Protocol), PostFun);
+raw_socket(Family, Type, Protocol, PostFun) when is_integer(Family), is_integer(Type), is_integer(Protocol) ->
+    ok     = init(), %% TODO: make this unnecessary by fixing the on_load handler
     case nif_socket(Family, Type, Protocol) of
 	{ok, Fd} ->
-	    CmdStr = lists:flatten(io_lib:format("gen_socket ~w", [Fd])),
-	    Port = open_port({spawn_driver, CmdStr}, [binary]),
-	    Socket = #gen_socket{port = Port, fd = Fd, family = Family, type = Type, protocol = Protocol},
-	    erlang:port_call(Port, ?GS_CALL_SETSOCKET, Socket),
-	    {ok, Socket};
+	    PostFun(Family, Type, Protocol, Fd);
 	Error ->
 	    Error
     end;
-socket(Family, Type, Protocol) ->
+raw_socket(Family, Type, Protocol, _PostFun) ->
     error(badarg, [Family, Type, Protocol]).
 
 -spec socketat(term(), term(), term(), term()) -> {ok, socket()} | {error, term()}.
-socketat(NetNsFile, Family, Type, Protocol) when is_list(NetNsFile) ->
-    socketat(iolist_to_binary(NetNsFile), Family, Type, Protocol);
-socketat(NetNsFile, Family, Type, Protocol) when is_atom(Family) ->
-    socketat(NetNsFile, family(Family), Type, Protocol);
-socketat(NetNsFile, Family, Type, Protocol) when is_atom(Type) ->
-    socketat(NetNsFile, Family, type(Type), Protocol);
-socketat(NetNsFile, Family, Type, Protocol) when is_atom(Protocol) ->
-    socketat(NetNsFile, Family, Type, protocol(Protocol));
-socketat(NetNsFile, Family, Type, Protocol) when is_binary(NetNsFile), is_integer(Family), is_integer(Type), is_integer(Protocol) ->
-    ok     = init(), %% TODO: make this unnecessary by fixing the on_load handler
+socketat(NetNsFile0, Family0, Type0, Protocol0) ->
+    raw_socketat(NetNsFile0, Family0, Type0, Protocol0,
+		 fun(_, Family, Type, Protocol, Fd) ->
+			 CmdStr = lists:flatten(io_lib:format("gen_socket ~w", [Fd])),
+			 Port = open_port({spawn_driver, CmdStr}, [binary]),
+			 Socket = #gen_socket{port = Port, fd = Fd, family = Family, type = Type, protocol = Protocol},
+			 erlang:port_call(Port, ?GS_CALL_SETSOCKET, Socket),
+			 {ok, Socket}
+		 end).
 
+-spec raw_socketat(term(), term(), term(), term()) -> {ok, socket()} | {error, term()}.
+raw_socketat(NetNsFile, Family, Type, Protocol) ->
+    raw_socketat(NetNsFile, Family, Type, Protocol, fun(_,_,_,_,Fd) -> {ok, Fd} end).
+
+raw_socketat(NetNsFile, Family, Type, Protocol, PostFun) when is_list(NetNsFile) ->
+    raw_socketat(iolist_to_binary(NetNsFile), Family, Type, Protocol, PostFun);
+raw_socketat(NetNsFile, Family, Type, Protocol, PostFun) when is_atom(Family) ->
+    raw_socketat(NetNsFile, family(Family), Type, Protocol, PostFun);
+raw_socketat(NetNsFile, Family, Type, Protocol, PostFun) when is_atom(Type) ->
+    raw_socketat(NetNsFile, Family, type(Type), Protocol, PostFun);
+raw_socketat(NetNsFile, Family, Type, Protocol, PostFun) when is_atom(Protocol) ->
+    raw_socketat(NetNsFile, Family, Type, protocol(Protocol), PostFun);
+raw_socketat(NetNsFile, Family, Type, Protocol, PostFun) when is_binary(NetNsFile), is_integer(Family), is_integer(Type), is_integer(Protocol) ->
+    ok     = init(), %% TODO: make this unnecessary by fixing the on_load handler
     case nif_socketat(NetNsFile, Family, Type, Protocol) of
 	{ok, Fd} ->
-	    CmdStr = lists:flatten(io_lib:format("gen_socket ~w", [Fd])),
-	    Port = open_port({spawn_driver, CmdStr}, [binary]),
-	    Socket = #gen_socket{port = Port, fd = Fd, family = Family, type = Type, protocol = Protocol},
-	    erlang:port_call(Port, ?GS_CALL_SETSOCKET, Socket),
-	    {ok, Socket};
+	    PostFun(NetNsFile, Family, Type, Protocol, Fd);
 	Error ->
 	    Error
     end;
-socketat(NetNsFile, Family, Type, Protocol) ->
+raw_socketat(NetNsFile, Family, Type, Protocol, _PostFun) ->
     error(badarg, [NetNsFile, Family, Type, Protocol]).
 
 %% @doc Get the family, type, and protocol of a socket.
@@ -208,9 +232,9 @@ getsockopt(Socket, Level, OptName) when is_atom(Level) ->
     getsockopt(Socket, opt_level_to_int(Level), OptName);
 getsockopt(Socket, Level, OptName) when is_atom(OptName) ->
     getsockopt(Socket, Level, opt_name_to_int(OptName));
-getsockopt(Socket, ?SOL_SOCKET, ?SO_ERROR) when ?IS_SOCKET(Socket) ->
+getsockopt(Socket, ?SOL_SOCKET, ?SO_ERROR) when ?IS_NIF_SOCKET(Socket) ->
     nif_getsock_error(nif_socket_of(Socket));
-getsockopt(Socket, Level, OptName) when ?IS_SOCKET(Socket), is_integer(Level), is_integer(OptName) ->
+getsockopt(Socket, Level, OptName) when ?IS_NIF_SOCKET(Socket), is_integer(Level), is_integer(OptName) ->
     OptLen = sockopt_len(Level, OptName),
     decode_sockopt(Level, OptName, nif_getsockopt(nif_socket_of(Socket), Level, OptName, OptLen));
 getsockopt(Socket, Level, OptName) ->
@@ -223,9 +247,9 @@ getsockopt(Socket, Level, OptName, OptLen) when is_atom(Level) ->
     getsockopt(Socket, opt_level_to_int(Level), OptName, OptLen);
 getsockopt(Socket, Level, OptName, OptLen) when is_atom(OptName) ->
     getsockopt(Socket, Level, opt_name_to_int(OptName), OptLen);
-getsockopt(Socket, ?SOL_SOCKET, ?SO_ERROR, _) when ?IS_SOCKET(Socket) ->
+getsockopt(Socket, ?SOL_SOCKET, ?SO_ERROR, _) when ?IS_NIF_SOCKET(Socket) ->
     nif_getsock_error(nif_socket_of(Socket));
-getsockopt(Socket, Level, OptName, OptLen) when ?IS_SOCKET(Socket), is_integer(Level), is_integer(OptName), is_integer(OptLen), OptLen > 0 ->
+getsockopt(Socket, Level, OptName, OptLen) when ?IS_NIF_SOCKET(Socket), is_integer(Level), is_integer(OptName), is_integer(OptLen), OptLen > 0 ->
     nif_getsockopt(nif_socket_of(Socket), Level, OptName, OptLen);
 getsockopt(Socket, Level, OptName, OptLen) ->
     error(badarg, [Socket, Level, OptName, OptLen]).
@@ -243,37 +267,37 @@ setsockopt(Socket, Level, OptName, false) ->
     setsockopt(Socket, Level, OptName, <<0:32/native-integer>>);
 setsockopt(Socket, Level, OptName, Val) when is_integer(Val) ->
     setsockopt(Socket, Level, OptName, <<Val:32/native-integer>>);
-setsockopt(Socket, Level, OptName, Val) when ?IS_SOCKET(Socket), is_binary(Val) ->
+setsockopt(Socket, Level, OptName, Val) when ?IS_NIF_SOCKET(Socket), is_binary(Val) ->
     nif_setsockopt(nif_socket_of(Socket), Level, OptName, Val);
 setsockopt(Socket, Level, OptName, Val) ->
     error(badarg, [Socket, Level, OptName, Val]).
 
 -spec getsockname(socket()) -> {ok, sockaddr()} | {error, closed}.
-getsockname(Socket) when ?IS_SOCKET(Socket) ->
+getsockname(Socket) when ?IS_NIF_SOCKET(Socket) ->
     nif_getsockname(nif_socket_of(Socket));
 getsockname(Socket) ->
     error(badarg, [Socket]).
 
 -spec getpeername(socket()) -> {ok, sockaddr()} | {error, closed}.
-getpeername(Socket) when ?IS_SOCKET(Socket) ->
+getpeername(Socket) when ?IS_NIF_SOCKET(Socket) ->
     nif_getpeername(nif_socket_of(Socket));
 getpeername(Socket) ->
     error(badarg, [Socket]).
 
 -spec bind(socket(), sockaddr()) -> ok | {error, atom()}.
-bind(Socket, Address) when ?IS_SOCKET(Socket) ->
+bind(Socket, Address) when ?IS_NIF_SOCKET(Socket) ->
     nif_bind(nif_socket_of(Socket), Address);
 bind(Socket, _) ->
     error(badarg, [Socket]).
 
 -spec connect(socket(), sockaddr()) -> ok | {error, atom()}.
-connect(Socket, Address) when ?IS_SOCKET(Socket) ->
+connect(Socket, Address) when ?IS_NIF_SOCKET(Socket) ->
     nif_connect(nif_socket_of(Socket), Address);
 connect(Socket, _) ->
     error(badarg, [Socket]).
 
 -spec accept(socket()) -> ok | {error, atom()}.
-accept(Socket) when ?IS_SOCKET(Socket) ->
+accept(Socket) when ?IS_NIF_SOCKET(Socket) ->
     nif_accept(nif_socket_of(Socket));
 accept(Socket) ->
     error(badarg, [Socket]).
@@ -289,65 +313,65 @@ output_event(Socket, Set) ->
     error(badarg, [Socket, Set]).
 
 -spec recv(socket()) -> {ok, binary()} | {error, closed} | {error, posix_error()}.
-recv(Socket) when ?IS_SOCKET(Socket) ->
+recv(Socket) when ?IS_NIF_SOCKET(Socket) ->
     nif_recv(nif_socket_of(Socket), -1).
 
 -spec recv(socket(), non_neg_integer()) -> {ok, binary()} | {error, closed} | {error, posix_error()}.
-recv(Socket, Length) when ?IS_SOCKET(Socket), is_integer(Length), Length > 0 ->
+recv(Socket, Length) when ?IS_NIF_SOCKET(Socket), is_integer(Length), Length > 0 ->
     nif_recv(nif_socket_of(Socket), Length);
 recv(Socket, Length) ->
     error(badarg, [Socket, Length]).
 
 -spec recvfrom(socket()) -> {ok, Sender, Data} | {error, closed} | {error, posix_error()}
     when Sender :: sockaddr(), Data :: binary().
-recvfrom(Socket) when ?IS_SOCKET(Socket) ->
+recvfrom(Socket) when ?IS_NIF_SOCKET(Socket) ->
     nif_recvfrom(nif_socket_of(Socket), -1);
 recvfrom(Socket) ->
     error(badarg, [Socket]).
 
 -spec recvfrom(socket(), non_neg_integer()) -> {ok, Sender, Data} | {error, closed} | {error, posix_error()}
     when Sender :: sockaddr(), Data :: binary().
-recvfrom(Socket, Length) when ?IS_SOCKET(Socket), is_integer(Length), Length > 0 ->
+recvfrom(Socket, Length) when ?IS_NIF_SOCKET(Socket), is_integer(Length), Length > 0 ->
     nif_recvfrom(nif_socket_of(Socket), Length);
 recvfrom(Socket, Length) ->
     error(badarg, [Socket, Length]).
 
 -spec send(socket(), iolist()) -> ok.
-send(Socket, Data) when ?IS_SOCKET(Socket) ->
+send(Socket, Data) when ?IS_NIF_SOCKET(Socket) ->
     nif_send(nif_socket_of(Socket), Data, 0);
 send(Socket, Data) ->
     error(badarg, [Socket, Data]).
 
 -spec sendto(socket(), sockaddr(), iolist()) -> ok.
-sendto(Socket, Address, Data) when ?IS_SOCKET(Socket), is_binary(Data) ->
+sendto(Socket, Address, Data) when ?IS_NIF_SOCKET(Socket), is_binary(Data) ->
     nif_sendto(nif_socket_of(Socket), Data, 0, Address);
 sendto(Socket, Address, Data) ->
     error(badarg, [Socket, Address, Data]).
 
 -spec read(socket()) -> {ok, binary()} | {error, closed} | {error, posix_error()}.
-read(Socket) when ?IS_SOCKET(Socket) ->
+read(Socket) when ?IS_NIF_SOCKET(Socket) ->
     nif_read(nif_socket_of(Socket), -1).
 
 -spec read(socket(), non_neg_integer()) -> {ok, binary()} | {error, closed} | {error, posix_error()}.
-read(Socket, Length) when ?IS_SOCKET(Socket), is_integer(Length), Length > 0 ->
+read(Socket, Length) when ?IS_NIF_SOCKET(Socket), is_integer(Length), Length > 0 ->
     nif_read(nif_socket_of(Socket), Length);
 read(Socket, Length) ->
     error(badarg, [Socket, Length]).
 
 -spec write(socket(), iolist()) -> ok.
-write(Socket, Data) when ?IS_SOCKET(Socket) ->
+write(Socket, Data) when ?IS_NIF_SOCKET(Socket) ->
     nif_write(nif_socket_of(Socket), Data);
 write(Socket, Data) ->
     error(badarg, [Socket, Data]).
 
 -spec listen(socket(), pos_integer()) -> ok | {error, closed} | {error, posix_error()}.
-listen(Socket, Backlog) when ?IS_SOCKET(Socket), is_integer(Backlog), Backlog >= 0 ->
+listen(Socket, Backlog) when ?IS_NIF_SOCKET(Socket), is_integer(Backlog), Backlog >= 0 ->
     nif_listen(nif_socket_of(Socket), Backlog);
 listen(Socket, Backlog) ->
     error(badarg, [Socket, Backlog]).
 
 -spec ioctl(socket(), integer(), binary()) -> ok | {error, closed} | {error, posix_error()}.
-ioctl(Socket, Request, Data) when ?IS_SOCKET(Socket), is_integer(Request), is_binary(Data) ->
+ioctl(Socket, Request, Data) when ?IS_NIF_SOCKET(Socket), is_integer(Request), is_binary(Data) ->
     nif_ioctl(nif_socket_of(Socket), Request, Data);
 ioctl(Socket, Request, Data) ->
     error(badarg, [Socket, Request, Data]).
