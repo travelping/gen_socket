@@ -792,19 +792,24 @@ nif_getsockopt(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     int level = 0;
     int name = 0;
     socklen_t optlen = 64;
-    ErlNifBinary val;
+    ErlNifBinary opt, val;
 
     if (!enif_get_int(env, argv[0], &s)
 	|| !enif_get_int(env, argv[1], &level)
 	|| !enif_get_int(env, argv[2], &name)
-	|| !enif_get_uint(env, argv[3], &optlen))
+	|| !enif_inspect_binary(env, argv[3], &opt)
+	|| !enif_get_uint(env, argv[4], &optlen))
         return enif_make_badarg(env);
 
     if (!enif_alloc_binary(optlen, &val))
-	    return atom_error;
+	return atom_error;
 
-    if (getsockopt(s, level, name, (void *)val.data, &optlen) < 0)
+    memcpy(val.data, opt.data, optlen > opt.size ? opt.size : optlen);
+
+    if (getsockopt(s, level, name, (void *)val.data, &optlen) < 0) {
+	enif_release_binary(&val);
         return error_tuple(env, errno);
+    }
 
     enif_realloc_binary(&val, optlen);
     return enif_make_binary(env, &val);
@@ -875,7 +880,7 @@ static ErlNifFunc nif_funcs[] = {
     {"nif_getsockname",     1, nif_getsockname},
     {"nif_getpeername",     1, nif_getpeername},
     {"nif_setsockopt",      4, nif_setsockopt},
-    {"nif_getsockopt",      4, nif_getsockopt},
+    {"nif_getsockopt",      5, nif_getsockopt},
     {"nif_getsock_error",   1, nif_getsock_error},
     {"nif_accept",          1, nif_accept},
     {"nif_connect",         2, nif_connect},

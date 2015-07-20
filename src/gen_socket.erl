@@ -36,7 +36,7 @@
 
 -export([controlling_process/2, socket/3, socketat/4,
 	 raw_socket/3, raw_socketat/4, getsocktype/1,
-	 getsockopt/3, getsockopt/4, setsockopt/4,
+	 getsockopt/3, getsockopt/4, getsockopt/5, setsockopt/4,
          getsockname/1, getpeername/1, bind/2, connect/2, accept/1,
 	 input_event/2, output_event/2,
          recv/1, recv/2, recvfrom/1, recvfrom/2,
@@ -236,13 +236,15 @@ getsockopt(Socket, ?SOL_SOCKET, ?SO_ERROR) when ?IS_NIF_SOCKET(Socket) ->
     nif_getsock_error(nif_socket_of(Socket));
 getsockopt(Socket, Level, OptName) when ?IS_NIF_SOCKET(Socket), is_integer(Level), is_integer(OptName) ->
     OptLen = sockopt_len(Level, OptName),
-    decode_sockopt(Level, OptName, nif_getsockopt(nif_socket_of(Socket), Level, OptName, OptLen));
+    decode_sockopt(Level, OptName, nif_getsockopt(nif_socket_of(Socket), Level, OptName, <<>>, OptLen));
 getsockopt(Socket, Level, OptName) ->
     error(badarg, [Socket, Level, OptName]).
 
--spec getsockopt(socket(), option_level(), option_name(), integer()) -> {ok, Value} | {error, Error}
+-spec getsockopt(socket(), option_level(), option_name(), integer() | binary()) -> {ok, Value} | {error, Error}
     when Value :: binary(),
          Error :: closed | enoprotoopt | enotsup.
+getsockopt(Socket, Level, OptName, Opt) when is_binary(Opt) ->
+    getsockopt(Socket, Level, OptName, Opt, size(Opt));
 getsockopt(Socket, Level, OptName, OptLen) when is_atom(Level) ->
     getsockopt(Socket, opt_level_to_int(Level), OptName, OptLen);
 getsockopt(Socket, Level, OptName, OptLen) when is_atom(OptName) ->
@@ -250,9 +252,23 @@ getsockopt(Socket, Level, OptName, OptLen) when is_atom(OptName) ->
 getsockopt(Socket, ?SOL_SOCKET, ?SO_ERROR, _) when ?IS_NIF_SOCKET(Socket) ->
     nif_getsock_error(nif_socket_of(Socket));
 getsockopt(Socket, Level, OptName, OptLen) when ?IS_NIF_SOCKET(Socket), is_integer(Level), is_integer(OptName), is_integer(OptLen), OptLen > 0 ->
-    nif_getsockopt(nif_socket_of(Socket), Level, OptName, OptLen);
+    nif_getsockopt(nif_socket_of(Socket), Level, OptName, <<>>, OptLen);
 getsockopt(Socket, Level, OptName, OptLen) ->
     error(badarg, [Socket, Level, OptName, OptLen]).
+
+-spec getsockopt(socket(), option_level(), option_name(), binary(), integer()) -> {ok, Value} | {error, Error}
+    when Value :: binary(),
+         Error :: closed | enoprotoopt | enotsup.
+getsockopt(Socket, Level, OptName, Opt, OptLen) when is_atom(Level) ->
+    getsockopt(Socket, opt_level_to_int(Level), OptName, Opt, OptLen);
+getsockopt(Socket, Level, OptName, Opt, OptLen) when is_atom(OptName) ->
+    getsockopt(Socket, Level, opt_name_to_int(OptName), Opt, OptLen);
+getsockopt(Socket, ?SOL_SOCKET, ?SO_ERROR, _, _) when ?IS_NIF_SOCKET(Socket) ->
+    nif_getsock_error(nif_socket_of(Socket));
+getsockopt(Socket, Level, OptName, Opt, OptLen) when ?IS_NIF_SOCKET(Socket), is_integer(Level), is_integer(OptName), is_binary(Opt), is_integer(OptLen), OptLen > 0 ->
+    nif_getsockopt(nif_socket_of(Socket), Level, OptName, Opt, OptLen);
+getsockopt(Socket, Level, OptName, Opt, OptLen) ->
+    error(badarg, [Socket, Level, OptName, Opt, OptLen]).
 
 -spec setsockopt(socket(), option_level(), option_name(), Value) -> ok | {error, Error}
     when Value :: boolean() | integer() | binary(),
@@ -395,7 +411,7 @@ nif_getpeername(_NifSocket) ->
     error(nif_not_loaded).
 nif_setsockopt(_NifSocket, _Level, _Name, _Val) ->
     error(nif_not_loaded).
-nif_getsockopt(_NifSocket, _Level, _Name, _OptLen) ->
+nif_getsockopt(_NifSocket, _Level, _Name, _Opt, _OptLen) ->
     error(nif_not_loaded).
 nif_getsock_error(_NifSocket) ->
     error(nif_not_loaded).
