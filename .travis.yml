@@ -1,0 +1,10 @@
+sudo: false
+language: erlang
+otp_release:
+    - R15B03
+    - R16B
+    - R16B03-1
+    - 17.4
+    - 17.5
+    - 18.0
+    - 18.1
