@@ -1,5 +1,6 @@
 gen_socket
 ===========
+[![Build Status](https://travis-ci.org/travelping/gen_socket.svg?branch=master)](https://travis-ci.org/travelping/gen_socket)
 
 gen_socket is an Erlang socket interface which can be used to create
 gen_tcp and gen_udp based sockets with special properties.
@@ -18,6 +19,14 @@ gen_tcp/gen_udp driver for further handling
 
 COMPILING
 ---------
-Try running: make
+
+Using tetrapak:
+
+    # tetrapak build check
+
+Using rebar:
+
+    # rebar get-deps
+    # rebar compile
 
 
