@@ -85,7 +85,7 @@ getsocktype(_Config) ->
                {unix, dgram, ip}],
 
    lists:foreach(fun ({Family, Type, Protocol}) ->
-                     Socket = gen_socket:socket(Family, Type, Protocol),
+                     {ok, Socket} = gen_socket:socket(Family, Type, Protocol),
                      ?MATCH({Family, Type, Protocol}, gen_socket:getsocktype(Socket))
                  end, Sockets).
 
@@ -96,7 +96,7 @@ getsockname(_Config) ->
                {unix, dgram, ip, {unix, <<"./test.getsockname.dgram">>}}],
 
     lists:foreach(fun ({Family, Type, Protocol, Address}) ->
-                      Socket = gen_socket:socket(Family, Type, Protocol),
+                      {ok, Socket} = gen_socket:socket(Family, Type, Protocol),
                       ok = gen_socket:bind(Socket, Address),
                       ?MATCH(Address, gen_socket:getsockname(Socket))
                   end, Sockets).
@@ -105,7 +105,7 @@ async_connect(_Config) ->
     {ok, ServerSocket} = gen_tcp:listen(0, [{ip, {127,0,0,1}}]),
     {ok, Port} = inet:port(ServerSocket),
 
-    ClientSocket = gen_socket:socket(inet, stream, tcp),
+    {ok, ClientSocket} = gen_socket:socket(inet, stream, tcp),
     ServerAddress = {inet4, {127,0,0,1}, Port},
     ?MATCH({error,einprogress}, gen_socket:connect(ClientSocket, ServerAddress)),
     ?MATCH(ok, gen_socket:output_event(ClientSocket, true)),
@@ -122,13 +122,13 @@ async_connect(_Config) ->
     end.
 
 async_connect_econnrefused(_Config) ->
-    ServerSocket = gen_socket:socket(inet, stream, tcp),
+    {ok, ServerSocket} = gen_socket:socket(inet, stream, tcp),
     gen_socket:bind(ServerSocket, {inet4, {127,0,0,1}, 0}),
     %% DO NOT LISTEN for this test
     %% -- gen_socket:listen(ServerSocket, 10),
     ServerAddress = gen_socket:getsockname(ServerSocket),
 
-    ClientSocket = gen_socket:socket(inet, stream, tcp),
+    {ok, ClientSocket} = gen_socket:socket(inet, stream, tcp),
     ?MATCH({error,einprogress}, gen_socket:connect(ClientSocket, ServerAddress)),
     ok = gen_socket:output_event(ClientSocket, true),
     
@@ -144,7 +144,7 @@ async_connect_econnrefused(_Config) ->
     ?MATCH(econnrefused, gen_socket:getsockopt(ClientSocket, sol_socket, error)).
 
 enotconn_errors(_Config) ->
-    Socket = gen_socket:socket(inet, stream, tcp),
+    {ok, Socket} = gen_socket:socket(inet, stream, tcp),
 
     %% not connected
     ?MATCH({error, enotconn}, gen_socket:read(Socket)),
@@ -175,7 +175,7 @@ enotconn_errors(_Config) ->
     ?MATCH({error, ebadf}, gen_socket:send(Socket, <<"data">>)).
 
 socket_options(_Config) ->
-    Socket = gen_socket:socket(inet, stream, tcp),
+    {ok, Socket} = gen_socket:socket(inet, stream, tcp),
     ok = gen_socket:setsockopt(Socket, sol_socket, rcvbuf, 8192),
     (8192 * 2) = gen_socket:getsockopt(Socket, sol_socket, rcvbuf).
 
@@ -196,7 +196,7 @@ client_tcp_recv(_Config) ->
                              end),
 
     %% open and connect client socket
-    ClientSocket = gen_socket:socket(inet, stream, tcp),
+    {ok, ClientSocket} = gen_socket:socket(inet, stream, tcp),
     ok = sync_connect(ClientSocket, ServerAddress, 160),
 
     ?MATCH(ServerAddress, gen_socket:getpeername(ClientSocket)),
@@ -224,7 +224,7 @@ client_tcp_read(_Config) ->
                              end),
 
     %% open and connect client socket
-    ClientSocket = gen_socket:socket(inet, stream, tcp),
+    {ok, ClientSocket} = gen_socket:socket(inet, stream, tcp),
     ok = sync_connect(ClientSocket, ServerAddress, 160),
 
     ?MATCH(ServerAddress, gen_socket:getpeername(ClientSocket)),
@@ -244,7 +244,7 @@ client_udp_recvfrom(_Config) ->
     ServerAddress = {inet4, {127,0,0,1}, ServerPort},
 
     %% open and connect client socket
-    ClientSocket = gen_socket:socket(inet, dgram, udp),
+    {ok, ClientSocket} = gen_socket:socket(inet, dgram, udp),
     ok = gen_socket:connect(ClientSocket, ServerAddress),
     ?MATCH(ServerAddress, gen_socket:getpeername(ClientSocket)),
     {inet4, _, ClientPort} = gen_socket:getsockname(ClientSocket),
@@ -274,7 +274,7 @@ client_tcp_send(_Config) ->
     ServerAddress = {inet4, {127,0,0,1}, ServerPort},
 
     %% open and connnect client socket
-    ClientSocket = gen_socket:socket(inet, stream, tcp),
+    {ok, ClientSocket} = gen_socket:socket(inet, stream, tcp),
     sync_connect(ClientSocket, ServerAddress, 150),
     {ok, ServerSocket} = gen_tcp:accept(ServerAcceptSocket),
     ?MATCH(ServerAddress, gen_socket:getpeername(ClientSocket)),
@@ -296,7 +296,7 @@ client_tcp_write(_Config) ->
     ServerAddress = {inet4, {127,0,0,1}, ServerPort},
 
     %% open and connnect client socket
-    ClientSocket = gen_socket:socket(inet, stream, tcp),
+    {ok, ClientSocket} = gen_socket:socket(inet, stream, tcp),
     sync_connect(ClientSocket, ServerAddress, 150),
     {ok, ServerSocket} = gen_tcp:accept(ServerAcceptSocket),
     ?MATCH(ServerAddress, gen_socket:getpeername(ClientSocket)),
@@ -318,7 +318,7 @@ client_udp_sendto(_Config) ->
     ServerAddress = {inet4, {127,0,0,1}, ServerPort},
 
     %% open client socket
-    ClientSocket = gen_socket:socket(inet, dgram, udp),
+    {ok, ClientSocket} = gen_socket:socket(inet, dgram, udp),
     ok = gen_socket:bind(ClientSocket, {inet4, {127,0,0,1}, 0}),
     {inet4, ClientIP, ClientPort} = gen_socket:getsockname(ClientSocket),
 
