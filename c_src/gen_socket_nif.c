@@ -59,6 +59,8 @@
 
 #include <sys/ioctl.h>
 
+#include <linux/errqueue.h>
+
 #include "erl_nif.h"
 #include "erl_driver.h" // for erl_errno_id
 
@@ -73,6 +75,8 @@ static ERL_NIF_TERM atom_error;
 // AF NAMES
 static ERL_NIF_TERM atom_unix;
 static ERL_NIF_TERM atom_inet4;
+
+static ERL_NIF_TERM atom_sock_err;
 
 // -------------------------------------------------------------------------------------------------
 // -- MISC INTERNAL HELPER FUNCTIONS
@@ -257,7 +261,7 @@ int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_error   = enif_make_atom(env, "error");
     atom_unix    = enif_make_atom(env, "unix");
     atom_inet4   = enif_make_atom(env, "inet4");
-
+    atom_sock_err = enif_make_atom(env, "sock_err");
     return 0;
 }
 
@@ -540,6 +544,107 @@ nif_recv(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 }
 
 // param 0: socket
+// param 1: flags for recvmsg
+// param 2: number of bytes to receive, determined automatically if negative
+static ERL_NIF_TERM
+nif_recvmsg(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{
+    int socket;
+    int flag;
+    ssize_t len = 0;
+    ssize_t r = 0;
+
+    char buffer[2048];
+    struct iovec iov;                       /* Data array */
+    struct msghdr msg;                      /* Message header */
+    struct cmsghdr *cmsg;                   /* Control related data */
+    struct sock_extended_err *sock_err;     /* Struct describing the error */
+    struct sockaddr_in remote;              /* Our socket */
+
+    ERL_NIF_TERM clist;
+    ErlNifBinary data;
+
+    if (!enif_get_int(env, argv[0], &socket)
+	|| !enif_get_int(env, argv[1], &flag)
+	|| !enif_get_ssize(env, argv[2], &len))
+        return enif_make_badarg(env);
+
+    fionread(len);
+
+    if (!enif_alloc_binary(len, &data))
+        return error_tuple(env, ENOMEM);
+
+    iov.iov_base = data.data;
+    iov.iov_len = data.size;
+    msg.msg_name = (void*)&remote;
+    msg.msg_namelen = sizeof(remote);
+    msg.msg_iov = &iov;
+    msg.msg_iovlen = 1;
+    msg.msg_flags = 0;
+    msg.msg_control = buffer;
+    msg.msg_controllen = sizeof(buffer);
+
+    while (42) {
+	if ((r = recvmsg(socket, &msg, flag)) >= 0)
+	    break;
+
+	switch (errno) {
+	case EINTR:
+	    continue;
+
+	default:
+	    enif_release_binary(&data);
+	    return error_tuple(env, errno);
+	}
+    }
+
+    if (iov.iov_len < data.size)
+        enif_realloc_binary(&data, iov.iov_len);
+
+
+    clist = enif_make_list(env, 0);
+
+    /* Control messages are always accessed via some macros
+     * http://www.kernel.org/doc/man-pages/online/pages/man3/cmsg.3.html
+     */
+    for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg))  {
+	ERL_NIF_TERM val;
+	ERL_NIF_TERM decoded;
+
+	/* Ip level */
+	if ((cmsg->cmsg_level == SOL_IP &&
+	     cmsg->cmsg_type == IP_RECVERR) ||
+	    (cmsg->cmsg_level == SOL_IPV6 &&
+	     cmsg->cmsg_type == IPV6_RECVERR)) {
+
+	    sock_err = (struct sock_extended_err*)CMSG_DATA(cmsg);
+	    decoded = enif_make_tuple7(env,
+				       atom_sock_err,
+				       enif_make_int(env, sock_err->ee_errno),
+				       enif_make_int(env, sock_err->ee_origin),
+				       enif_make_int(env, sock_err->ee_type),
+				       enif_make_int(env, sock_err->ee_code),
+				       enif_make_int(env, sock_err->ee_info),
+				       enif_make_int(env, sock_err->ee_data));
+	} else {
+	    memcpy(enif_make_new_binary(env, cmsg->cmsg_len - sizeof(struct cmsghdr), &decoded),
+		   CMSG_DATA(cmsg), cmsg->cmsg_len - sizeof(struct cmsghdr));
+	}
+
+	val = enif_make_tuple3(env,
+			       enif_make_int(env, cmsg->cmsg_level),
+			       enif_make_int(env, cmsg->cmsg_type),
+			       decoded);
+        clist = enif_make_list_cell(env, val, clist);
+    }
+
+    return enif_make_tuple4(env,
+                            atom_ok,
+                            sockaddr_to_term(env, msg.msg_name, msg.msg_namelen),
+			    clist, enif_make_binary(env, &data));
+}
+
+// param 0: socket
 // param 1: number of bytes to receive, determined automatically if negative
 static ERL_NIF_TERM
 nif_recvfrom(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
@@ -567,7 +672,7 @@ nif_recvfrom(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 	switch (errno) {
 	case EINTR:
 	    continue;
-	    
+
 	default:
 	    enif_release_binary(&buffer);
 	    return error_tuple(env, errno);
@@ -886,6 +991,7 @@ static ErlNifFunc nif_funcs[] = {
     {"nif_connect",         2, nif_connect},
     {"nif_bind",            2, nif_bind},
     {"nif_recv",            2, nif_recv},
+    {"nif_recvmsg",         3, nif_recvmsg},
     {"nif_recvfrom",        2, nif_recvfrom},
     {"nif_send",            3, nif_send},
     {"nif_sendto",          4, nif_sendto},

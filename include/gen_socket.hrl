@@ -49,6 +49,7 @@
 -define(PF_INET6, 10).      % IP version 6.
 -define(PF_PACKET, 17).     % Packet family.
 
+-define(SOL_IP,     0).
 -define(SOL_SOCKET, 1).
 
 -define(SO_DEBUG,        1).
@@ -160,3 +161,72 @@
 
 -define(ARPHRD_VOID,       65535).       %% Void type, nothing is known
 -define(ARPHRD_NONE,       65534).       %% zero header length
+
+
+-define(IP_TOS,				1).
+-define(IP_TTL,				2).
+-define(IP_OPTIONS,			4).
+-define(IP_HDRINCL,			3).
+-define(IP_ROUTER_ALERT,		5).
+-define(IP_RECVOPTS,			6).
+-define(IP_RETOPTS,			7).
+-define(IP_PKTINFO,			8).
+-define(IP_PKTOPTIONS,			9).
+-define(IP_PMTUDISC,			10).
+-define(IP_MTU_DISCOVER,		10).
+-define(IP_RECVERR,			11).
+-define(IP_RECVTTL,			12).
+-define(IP_RECVTOS,			13).
+-define(IP_MTU,				14).
+-define(IP_FREEBIND,			15).
+-define(IP_IPSEC_POLICY,		16).
+-define(IP_XFRM_POLICY,			17).
+-define(IP_PASSSEC,			18).
+-define(IP_TRANSPARENT,			19).
+-define(IP_ORIGDSTADDR,			20).
+-define(IP_MINTTL,			21).
+-define(IP_NODEFRAG,			22).
+-define(IP_MULTICAST_IF,		32).
+-define(IP_MULTICAST_TTL,		33).
+-define(IP_MULTICAST_LOOP,		34).
+-define(IP_ADD_MEMBERSHIP,		35).
+-define(IP_DROP_MEMBERSHIP,		36).
+-define(IP_UNBLOCK_SOURCE,		37).
+-define(IP_BLOCK_SOURCE,		38).
+-define(IP_ADD_SOURCE_MEMBERSHIP,	39).
+-define(IP_DROP_SOURCE_MEMBERSHIP,	40).
+-define(IP_MSFILTER,			41).
+-define(MCAST_JOIN_GROUP,		42).
+-define(MCAST_BLOCK_SOURCE,		43).
+-define(MCAST_UNBLOCK_SOURCE,		44).
+-define(MCAST_LEAVE_GROUP,		45).
+-define(MCAST_JOIN_SOURCE_GROUP,	46).
+-define(MCAST_LEAVE_SOURCE_GROUP,	47).
+-define(MCAST_MSFILTER,			48).
+-define(IP_MULTICAST_ALL,		49).
+-define(IP_UNICAST_IF,			50).
+
+-record(sock_err, {errno, origin, type, code, info, data}).
+
+
+-define(MSG_OOB,             16#01).			%% Process out-of-band data.
+-define(MSG_PEEK,            16#02).			%% Peek at incoming messages.
+-define(MSG_DONTROUTE,       16#04).			%% Don't use local routing.
+-define(MSG_CTRUNC,          16#08).			%% Control data lost before delivery.
+-define(MSG_PROXY,           16#10).			%% Supply or ask second address.
+-define(MSG_TRUNC,           16#20).
+-define(MSG_DONTWAIT,        16#40).			%% Nonblocking IO.
+-define(MSG_EOR,             16#80).			%% End of record.
+-define(MSG_WAITALL,         16#100).			%% Wait for a full request.
+-define(MSG_FIN,             16#200).
+-define(MSG_SYN,             16#400).
+-define(MSG_CONFIRM,         16#800).			%% Confirm path validity.
+-define(MSG_RST,             16#1000).
+-define(MSG_ERRQUEUE,        16#2000).			%% Fetch message from error queue.
+-define(MSG_NOSIGNAL,        16#4000).			%% Do not generate SIGPIPE.
+-define(MSG_MORE,            16#8000).			%% Sender will send more.
+-define(MSG_WAITFORONE,      16#10000).			%% Wait for at least one packet to return.*/
+-define(MSG_FASTOPEN,        16#20000000).		%% Send data in TCP SYN.
+-define(MSG_CMSG_CLOEXEC,    16#40000000).		%% Set close_on_exit for file
+							%% descriptor received through
+							%% SCM_RIGHTS.

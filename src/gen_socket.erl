@@ -39,7 +39,7 @@
 	 getsockopt/3, getsockopt/4, getsockopt/5, setsockopt/4,
          getsockname/1, getpeername/1, bind/2, connect/2, accept/1,
 	 input_event/2, output_event/2,
-         recv/1, recv/2, recvfrom/1, recvfrom/2,
+         recv/1, recv/2, recvmsg/2, recvmsg/3, recvfrom/1, recvfrom/2,
          send/2, sendto/3,
 	 read/1, read/2, write/2,
 	 getfd/1,
@@ -343,6 +343,20 @@ recv(Socket, Length) when ?IS_NIF_SOCKET(Socket), is_integer(Length), Length > 0
 recv(Socket, Length) ->
     error(badarg, [Socket, Length]).
 
+-spec recvmsg(socket(), non_neg_integer()) -> {ok, Sender, CMsg, Data} | {error, closed} | {error, posix_error()}
+    when Sender :: sockaddr(), CMsg :: list(), Data :: binary().
+recvmsg(Socket, Flag) when ?IS_NIF_SOCKET(Socket) ->
+    nif_recvmsg(nif_socket_of(Socket), Flag, -1);
+recvmsg(Socket, Flag) ->
+    error(badarg, [Socket, Flag]).
+
+-spec recvmsg(socket(), non_neg_integer(), non_neg_integer()) -> {ok, Sender, CMsg, Data} | {error, closed} | {error, posix_error()}
+    when Sender :: sockaddr(), CMsg :: list(), Data :: binary().
+recvmsg(Socket, Flag, Length) when ?IS_NIF_SOCKET(Socket), is_integer(Length), Length > 0 ->
+    nif_recvmsg(nif_socket_of(Socket), Flag, Length);
+recvmsg(Socket, Flag, Length) ->
+    error(badarg, [Socket, Flag, Length]).
+
 -spec recvfrom(socket()) -> {ok, Sender, Data} | {error, closed} | {error, posix_error()}
     when Sender :: sockaddr(), Data :: binary().
 recvfrom(Socket) when ?IS_NIF_SOCKET(Socket) ->
@@ -428,6 +442,8 @@ nif_accept(_NifSocket) ->
     error(nif_not_loaded).
 nif_recv(_NifSocket, _Length) ->
     error(nif_not_loaded).
+nif_recvmsg(_NifSocket, _Flag, _Length) ->
+    error(nif_not_loaded).
 nif_recvfrom(_NifSocket, _Length) ->
     error(nif_not_loaded).
 nif_send(_NifSocket, _Data, _Flags) ->
@@ -447,8 +463,53 @@ nif_shutdown(_NifSocket, _How) ->
 
 %% -------------------------------------------------------------------------------------------------
 %% -- Enums
+opt_level_to_int(sol_ip)     -> ?SOL_IP;
 opt_level_to_int(sol_socket) -> ?SOL_SOCKET;
 opt_level_to_int(X)          -> protocol_to_int(X).
+
+
+opt_name_to_int(?SOL_IP, tos)			-> ?IP_TOS;
+opt_name_to_int(?SOL_IP, ttl)			-> ?IP_TTL;
+opt_name_to_int(?SOL_IP, options)		-> ?IP_OPTIONS;
+opt_name_to_int(?SOL_IP, hdrincl)		-> ?IP_HDRINCL;
+opt_name_to_int(?SOL_IP, router_alert)		-> ?IP_ROUTER_ALERT;
+opt_name_to_int(?SOL_IP, recvopts)		-> ?IP_RECVOPTS;
+opt_name_to_int(?SOL_IP, retopts)		-> ?IP_RETOPTS;
+opt_name_to_int(?SOL_IP, pktinfo)		-> ?IP_PKTINFO;
+opt_name_to_int(?SOL_IP, pktoptions)		-> ?IP_PKTOPTIONS;
+opt_name_to_int(?SOL_IP, pmtudisc)		-> ?IP_PMTUDISC;
+opt_name_to_int(?SOL_IP, mtu_discover)		-> ?IP_MTU_DISCOVER;
+opt_name_to_int(?SOL_IP, recverr)		-> ?IP_RECVERR;
+opt_name_to_int(?SOL_IP, recvttl)		-> ?IP_RECVTTL;
+opt_name_to_int(?SOL_IP, recvtos)		-> ?IP_RECVTOS;
+opt_name_to_int(?SOL_IP, mtu)			-> ?IP_MTU;
+opt_name_to_int(?SOL_IP, freebind)		-> ?IP_FREEBIND;
+opt_name_to_int(?SOL_IP, ipsec_policy)		-> ?IP_IPSEC_POLICY;
+opt_name_to_int(?SOL_IP, xfrm_policy)		-> ?IP_XFRM_POLICY;
+opt_name_to_int(?SOL_IP, passsec)		-> ?IP_PASSSEC;
+opt_name_to_int(?SOL_IP, transparent)		-> ?IP_TRANSPARENT;
+opt_name_to_int(?SOL_IP, origdstaddr)		-> ?IP_ORIGDSTADDR;
+opt_name_to_int(?SOL_IP, minttl)		-> ?IP_MINTTL;
+opt_name_to_int(?SOL_IP, nodefrag)		-> ?IP_NODEFRAG;
+opt_name_to_int(?SOL_IP, multicast_if)		-> ?IP_MULTICAST_IF;
+opt_name_to_int(?SOL_IP, multicast_ttl)		-> ?IP_MULTICAST_TTL;
+opt_name_to_int(?SOL_IP, multicast_loop)	-> ?IP_MULTICAST_LOOP;
+opt_name_to_int(?SOL_IP, add_membership)	-> ?IP_ADD_MEMBERSHIP;
+opt_name_to_int(?SOL_IP, drop_membership)	-> ?IP_DROP_MEMBERSHIP;
+opt_name_to_int(?SOL_IP, unblock_source)	-> ?IP_UNBLOCK_SOURCE;
+opt_name_to_int(?SOL_IP, block_source)		-> ?IP_BLOCK_SOURCE;
+opt_name_to_int(?SOL_IP, add_source_membership)		-> ?IP_ADD_SOURCE_MEMBERSHIP;
+opt_name_to_int(?SOL_IP, drop_source_membership)	-> ?IP_DROP_SOURCE_MEMBERSHIP;
+opt_name_to_int(?SOL_IP, msfilter)		-> ?IP_MSFILTER;
+opt_name_to_int(?SOL_IP, mcast_join_group)		-> ?MCAST_JOIN_GROUP;
+opt_name_to_int(?SOL_IP, mcast_block_source)		-> ?MCAST_BLOCK_SOURCE;
+opt_name_to_int(?SOL_IP, mcast_unblock_source)		-> ?MCAST_UNBLOCK_SOURCE;
+opt_name_to_int(?SOL_IP, mcast_leave_group)		-> ?MCAST_LEAVE_GROUP;
+opt_name_to_int(?SOL_IP, mcast_join_source_group)	-> ?MCAST_JOIN_SOURCE_GROUP;
+opt_name_to_int(?SOL_IP, mcast_leave_source_group)	-> ?MCAST_LEAVE_SOURCE_GROUP;
+opt_name_to_int(?SOL_IP, mcast_msfilter)		-> ?MCAST_MSFILTER;
+opt_name_to_int(?SOL_IP, multicast_all)		-> ?IP_MULTICAST_ALL;
+opt_name_to_int(?SOL_IP, unicast_if)		-> ?IP_UNICAST_IF;
 
 opt_name_to_int(?SOL_SOCKET, debug)		-> ?SO_DEBUG;
 opt_name_to_int(?SOL_SOCKET, reuseaddr)		-> ?SO_REUSEADDR;
@@ -490,6 +551,26 @@ opt_name_to_int(?SOL_SOCKET, protocol)		-> ?SO_PROTOCOL;
 opt_name_to_int(?SOL_SOCKET, domain)		-> ?SO_DOMAIN;
 opt_name_to_int(?SOL_SOCKET, rxq_ovfl)		-> ?SO_RXQ_OVFL.
 
+
+
+
+
+
+sockopt_len(?SOL_IP, OptName)
+  when OptName == ?IP_HDRINCL; OptName == ?IP_TOS, OptName == ?IP_TTL;
+       OptName == ?IP_MTU_DISCOVER; OptName == ?IP_MTU ->
+    4;
+
+sockopt_len(?SOL_IP, OptName)
+  when OptName == ?IP_RECVOPTS; OptName == ?IP_ROUTER_ALERT; OptName == ?IP_PKTINFO;
+       OptName == ?IP_RECVERR; OptName == ?IP_RECVTTL; OptName == ?IP_RECVTOS;
+       OptName == ?IP_MULTICAST_ALL ->
+    4;
+
+sockopt_len(?SOL_IP, OptName)
+  when OptName == ?IP_OPTIONS; OptName == ?IP_RETOPTS ->
+    44;
+
 sockopt_len(?SOL_SOCKET, OptName)
   when OptName == ?SO_ACCEPTCONN; OptName == ?SO_BROADCAST; OptName == ?SO_BSDCOMPAT;
        OptName == ?SO_DEBUG; OptName == ?SO_DONTROUTE; OptName == ?SO_KEEPALIVE;
@@ -517,6 +598,17 @@ sockopt_len(?SOL_SOCKET, ?SO_PEERCRED) ->
     64;
 sockopt_len(_Level, _OptName) ->
     128.
+
+decode_sockopt(?SOL_IP, OptName, <<Value:32/native-integer>>)
+  when OptName == ?IP_HDRINCL; OptName == ?IP_TOS, OptName == ?IP_TTL;
+       OptName == ?IP_MTU_DISCOVER; OptName == ?IP_MTU ->
+    Value;
+
+decode_sockopt(?SOL_IP, OptName, <<Value:32/native-integer>>)
+  when OptName == ?IP_RECVOPTS; OptName == ?IP_ROUTER_ALERT; OptName == ?IP_PKTINFO;
+       OptName == ?IP_RECVERR; OptName == ?IP_RECVTTL; OptName == ?IP_RECVTOS;
+       OptName == ?IP_MULTICAST_ALL ->
+    Value /= 0;
 
 decode_sockopt(?SOL_SOCKET, OptName, <<Value:32/native-integer>>)
   when OptName == ?SO_ACCEPTCONN; OptName == ?SO_BROADCAST; OptName == ?SO_BSDCOMPAT;
