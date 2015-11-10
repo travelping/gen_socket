@@ -42,6 +42,7 @@
          recv/1, recv/2, recvfrom/1, recvfrom/2,
          send/2, sendto/3,
 	 read/1, read/2, write/2,
+	 getfd/1,
          listen/2, ioctl/3,
          shutdown/2, close/1]).
 -export([family/1, type/1, protocol/1, arphdr/1]).
@@ -133,6 +134,10 @@ controlling_process(Socket, NewOwner) when ?IS_SOCKET(Socket) ->
     end;
 controlling_process(Socket, NewOwner) ->
     error(badarg, [Socket, NewOwner]).
+
+-spec getfd(socket()) -> integer().
+getfd(Socket) ->
+    nif_socket_of(Socket).
 
 -spec close(socket()) -> ok.
 close(Socket) when is_integer(Socket) ->

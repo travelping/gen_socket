@@ -56,7 +56,7 @@ sync_connect(ClientSocket, ServerAddress, Timeout) ->
 all() ->
     [address_encoding, getsocktype, getsockname,
      async_connect, async_connect_econnrefused,
-     enotconn_errors, socket_options,
+     enotconn_errors, socket_options, getsockfd,
      client_tcp_recv, client_tcp_read, client_udp_recvfrom,
      client_tcp_send, client_tcp_write, client_udp_sendto].
 
@@ -88,6 +88,20 @@ getsocktype(_Config) ->
                      {ok, Socket} = gen_socket:socket(Family, Type, Protocol),
                      ?MATCH({Family, Type, Protocol}, gen_socket:getsocktype(Socket))
                  end, Sockets).
+
+getsockfd(_Config) ->
+    Sockets = [{inet, stream, ip},
+               {inet, dgram, ip},
+               {inet, stream, tcp},
+               {inet, dgram, udp},
+               {unix, stream, ip},
+               {unix, dgram, ip}],
+
+    lists:foreach(fun ({Family, Type, Protocol}) ->
+			  {ok, Socket} = gen_socket:socket(Family, Type, Protocol),
+			  Fd = gen_socket:getfd(Socket),
+			  ?ASSERT(is_integer(Fd) andalso Fd > 0)
+		  end, Sockets).
 
 getsockname(_Config) ->
     Sockets = [{inet, stream, tcp, {inet4, {127,0,0,1}, 8900}},
