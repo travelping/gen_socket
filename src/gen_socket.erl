@@ -235,8 +235,8 @@ getsocktype(Socket) ->
          Error :: closed | enoprotoopt | enotsup.
 getsockopt(Socket, Level, OptName) when is_atom(Level) ->
     getsockopt(Socket, opt_level_to_int(Level), OptName);
-getsockopt(Socket, Level, OptName) when is_atom(OptName) ->
-    getsockopt(Socket, Level, opt_name_to_int(OptName));
+getsockopt(Socket, Level, OptName) when is_integer(Level), is_atom(OptName) ->
+    getsockopt(Socket, Level, opt_name_to_int(Level, OptName));
 getsockopt(Socket, ?SOL_SOCKET, ?SO_ERROR) when ?IS_NIF_SOCKET(Socket) ->
     nif_getsock_error(nif_socket_of(Socket));
 getsockopt(Socket, Level, OptName) when ?IS_NIF_SOCKET(Socket), is_integer(Level), is_integer(OptName) ->
@@ -252,8 +252,8 @@ getsockopt(Socket, Level, OptName, Opt) when is_binary(Opt) ->
     getsockopt(Socket, Level, OptName, Opt, size(Opt));
 getsockopt(Socket, Level, OptName, OptLen) when is_atom(Level) ->
     getsockopt(Socket, opt_level_to_int(Level), OptName, OptLen);
-getsockopt(Socket, Level, OptName, OptLen) when is_atom(OptName) ->
-    getsockopt(Socket, Level, opt_name_to_int(OptName), OptLen);
+getsockopt(Socket, Level, OptName, OptLen) when is_integer(Level), is_atom(OptName) ->
+    getsockopt(Socket, Level, opt_name_to_int(Level, OptName), OptLen);
 getsockopt(Socket, ?SOL_SOCKET, ?SO_ERROR, _) when ?IS_NIF_SOCKET(Socket) ->
     nif_getsock_error(nif_socket_of(Socket));
 getsockopt(Socket, Level, OptName, OptLen) when ?IS_NIF_SOCKET(Socket), is_integer(Level), is_integer(OptName), is_integer(OptLen), OptLen > 0 ->
@@ -266,8 +266,8 @@ getsockopt(Socket, Level, OptName, OptLen) ->
          Error :: closed | enoprotoopt | enotsup.
 getsockopt(Socket, Level, OptName, Opt, OptLen) when is_atom(Level) ->
     getsockopt(Socket, opt_level_to_int(Level), OptName, Opt, OptLen);
-getsockopt(Socket, Level, OptName, Opt, OptLen) when is_atom(OptName) ->
-    getsockopt(Socket, Level, opt_name_to_int(OptName), Opt, OptLen);
+getsockopt(Socket, Level, OptName, Opt, OptLen) when is_integer(Level), is_atom(OptName) ->
+    getsockopt(Socket, Level, opt_name_to_int(Level, OptName), Opt, OptLen);
 getsockopt(Socket, ?SOL_SOCKET, ?SO_ERROR, _, _) when ?IS_NIF_SOCKET(Socket) ->
     nif_getsock_error(nif_socket_of(Socket));
 getsockopt(Socket, Level, OptName, Opt, OptLen) when ?IS_NIF_SOCKET(Socket), is_integer(Level), is_integer(OptName), is_binary(Opt), is_integer(OptLen), OptLen > 0 ->
@@ -280,8 +280,8 @@ getsockopt(Socket, Level, OptName, Opt, OptLen) ->
          Error :: closed | enoprotoopt | enotsup | einval.
 setsockopt(Socket, Level, OptName, Val) when is_atom(Level) ->
     setsockopt(Socket, opt_level_to_int(Level), OptName, Val);
-setsockopt(Socket, Level, OptName, Val) when is_atom(OptName) ->
-    setsockopt(Socket, Level, opt_name_to_int(OptName), Val);
+setsockopt(Socket, Level, OptName, Val) when is_integer(Level), is_atom(OptName) ->
+    setsockopt(Socket, Level, opt_name_to_int(Level, OptName), Val);
 setsockopt(Socket, Level, OptName, true) ->
     setsockopt(Socket, Level, OptName, <<1:32/native-integer>>);
 setsockopt(Socket, Level, OptName, false) ->
@@ -450,45 +450,45 @@ nif_shutdown(_NifSocket, _How) ->
 opt_level_to_int(sol_socket) -> ?SOL_SOCKET;
 opt_level_to_int(X)          -> protocol_to_int(X).
 
-opt_name_to_int(debug)		-> ?SO_DEBUG;
-opt_name_to_int(reuseaddr)	-> ?SO_REUSEADDR;
-opt_name_to_int(type)		-> ?SO_TYPE;
-opt_name_to_int(error)		-> ?SO_ERROR;
-opt_name_to_int(dontroute)	-> ?SO_DONTROUTE;
-opt_name_to_int(broadcast)	-> ?SO_BROADCAST;
-opt_name_to_int(sndbuf)		-> ?SO_SNDBUF;
-opt_name_to_int(rcvbuf)		-> ?SO_RCVBUF;
-opt_name_to_int(sndbufforce)	-> ?SO_SNDBUFFORCE;
-opt_name_to_int(rcvbufforce)	-> ?SO_RCVBUFFORCE;
-opt_name_to_int(keepalive)	-> ?SO_KEEPALIVE;
-opt_name_to_int(oobinline)	-> ?SO_OOBINLINE;
-opt_name_to_int(no_check)	-> ?SO_NO_CHECK;
-opt_name_to_int(priority)	-> ?SO_PRIORITY;
-opt_name_to_int(linger)		-> ?SO_LINGER;
-opt_name_to_int(bsdcompat)	-> ?SO_BSDCOMPAT;
-opt_name_to_int(passcred)	-> ?SO_PASSCRED;
-opt_name_to_int(peercred)	-> ?SO_PEERCRED;
-opt_name_to_int(rcvlowat)	-> ?SO_RCVLOWAT;
-opt_name_to_int(sndlowat)	-> ?SO_SNDLOWAT;
-opt_name_to_int(rcvtimeo)	-> ?SO_RCVTIMEO;
-opt_name_to_int(sndtimeo)	-> ?SO_SNDTIMEO;
-opt_name_to_int(security_authentication)	-> ?SO_SECURITY_AUTHENTICATION;
-opt_name_to_int(security_encryption_transport)	-> ?SO_SECURITY_ENCRYPTION_TRANSPORT;
-opt_name_to_int(security_encryption_network)	-> ?SO_SECURITY_ENCRYPTION_NETWORK;
-opt_name_to_int(bindtodevice)	-> ?SO_BINDTODEVICE;
-opt_name_to_int(attach_filter)	-> ?SO_ATTACH_FILTER;
-opt_name_to_int(detach_filter)	-> ?SO_DETACH_FILTER;
-opt_name_to_int(peername)	-> ?SO_PEERNAME;
-opt_name_to_int(timestamp)	-> ?SO_TIMESTAMP;
-opt_name_to_int(acceptconn)	-> ?SO_ACCEPTCONN;
-opt_name_to_int(peersec)	-> ?SO_PEERSEC;
-opt_name_to_int(passsec)	-> ?SO_PASSSEC;
-opt_name_to_int(timestampns)	-> ?SO_TIMESTAMPNS;
-opt_name_to_int(mark)		-> ?SO_MARK;
-opt_name_to_int(timestamping)	-> ?SO_TIMESTAMPING;
-opt_name_to_int(protocol)	-> ?SO_PROTOCOL;
-opt_name_to_int(domain)		-> ?SO_DOMAIN;
-opt_name_to_int(rxq_ovfl)	-> ?SO_RXQ_OVFL.
+opt_name_to_int(?SOL_SOCKET, debug)		-> ?SO_DEBUG;
+opt_name_to_int(?SOL_SOCKET, reuseaddr)		-> ?SO_REUSEADDR;
+opt_name_to_int(?SOL_SOCKET, type)		-> ?SO_TYPE;
+opt_name_to_int(?SOL_SOCKET, error)		-> ?SO_ERROR;
+opt_name_to_int(?SOL_SOCKET, dontroute)		-> ?SO_DONTROUTE;
+opt_name_to_int(?SOL_SOCKET, broadcast)		-> ?SO_BROADCAST;
+opt_name_to_int(?SOL_SOCKET, sndbuf)		-> ?SO_SNDBUF;
+opt_name_to_int(?SOL_SOCKET, rcvbuf)		-> ?SO_RCVBUF;
+opt_name_to_int(?SOL_SOCKET, sndbufforce)	-> ?SO_SNDBUFFORCE;
+opt_name_to_int(?SOL_SOCKET, rcvbufforce)	-> ?SO_RCVBUFFORCE;
+opt_name_to_int(?SOL_SOCKET, keepalive)		-> ?SO_KEEPALIVE;
+opt_name_to_int(?SOL_SOCKET, oobinline)		-> ?SO_OOBINLINE;
+opt_name_to_int(?SOL_SOCKET, no_check)		-> ?SO_NO_CHECK;
+opt_name_to_int(?SOL_SOCKET, priority)		-> ?SO_PRIORITY;
+opt_name_to_int(?SOL_SOCKET, linger)		-> ?SO_LINGER;
+opt_name_to_int(?SOL_SOCKET, bsdcompat)		-> ?SO_BSDCOMPAT;
+opt_name_to_int(?SOL_SOCKET, passcred)		-> ?SO_PASSCRED;
+opt_name_to_int(?SOL_SOCKET, peercred)		-> ?SO_PEERCRED;
+opt_name_to_int(?SOL_SOCKET, rcvlowat)		-> ?SO_RCVLOWAT;
+opt_name_to_int(?SOL_SOCKET, sndlowat)		-> ?SO_SNDLOWAT;
+opt_name_to_int(?SOL_SOCKET, rcvtimeo)		-> ?SO_RCVTIMEO;
+opt_name_to_int(?SOL_SOCKET, sndtimeo)		-> ?SO_SNDTIMEO;
+opt_name_to_int(?SOL_SOCKET, security_authentication)		-> ?SO_SECURITY_AUTHENTICATION;
+opt_name_to_int(?SOL_SOCKET, security_encryption_transport)	-> ?SO_SECURITY_ENCRYPTION_TRANSPORT;
+opt_name_to_int(?SOL_SOCKET, security_encryption_network)	-> ?SO_SECURITY_ENCRYPTION_NETWORK;
+opt_name_to_int(?SOL_SOCKET, bindtodevice)	-> ?SO_BINDTODEVICE;
+opt_name_to_int(?SOL_SOCKET, attach_filter)	-> ?SO_ATTACH_FILTER;
+opt_name_to_int(?SOL_SOCKET, detach_filter)	-> ?SO_DETACH_FILTER;
+opt_name_to_int(?SOL_SOCKET, peername)		-> ?SO_PEERNAME;
+opt_name_to_int(?SOL_SOCKET, timestamp)		-> ?SO_TIMESTAMP;
+opt_name_to_int(?SOL_SOCKET, acceptconn)	-> ?SO_ACCEPTCONN;
+opt_name_to_int(?SOL_SOCKET, peersec)		-> ?SO_PEERSEC;
+opt_name_to_int(?SOL_SOCKET, passsec)		-> ?SO_PASSSEC;
+opt_name_to_int(?SOL_SOCKET, timestampns)	-> ?SO_TIMESTAMPNS;
+opt_name_to_int(?SOL_SOCKET, mark)		-> ?SO_MARK;
+opt_name_to_int(?SOL_SOCKET, timestamping)	-> ?SO_TIMESTAMPING;
+opt_name_to_int(?SOL_SOCKET, protocol)		-> ?SO_PROTOCOL;
+opt_name_to_int(?SOL_SOCKET, domain)		-> ?SO_DOMAIN;
+opt_name_to_int(?SOL_SOCKET, rxq_ovfl)		-> ?SO_RXQ_OVFL.
 
 sockopt_len(?SOL_SOCKET, OptName)
   when OptName == ?SO_ACCEPTCONN; OptName == ?SO_BROADCAST; OptName == ?SO_BSDCOMPAT;
