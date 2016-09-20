@@ -82,7 +82,7 @@ typedef struct {
 	ErlDrvPort drv_port;
 	int fd;
 	int socket_len;
-	char socket[64];
+	char socket[128];
 } GsState;
 
 static ErlDrvTermData input_atom;
