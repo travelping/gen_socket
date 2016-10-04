@@ -29,6 +29,8 @@
 %% ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 %% POSSIBILITY OF SUCH DAMAGE.
 
+-ifndef(_GEN_SOCKET).
+-define(_GEN_SOCKET, 1).
 -define(UNIX_PATH_MAX, 108).
 -define(BACKLOG, 50).
 
@@ -230,3 +232,4 @@
 -define(MSG_CMSG_CLOEXEC,    16#40000000).		%% Set close_on_exit for file
 							%% descriptor received through
 							%% SCM_RIGHTS.
+-endif.
