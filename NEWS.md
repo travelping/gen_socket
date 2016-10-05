@@ -1,6 +1,14 @@
 gen_socket
 ==========
 
+Changes with 0.6.0 - 05 Oct 2016
+--------------------------------
+
+* support Erlang R19
+* support rebar3 for build
+* new recvmsg/2 and recvmsg/3 methods
+* new getfd/1 method
+
 Changes with 0.5.0 - 20 Jul 2015
 --------------------------------
 
