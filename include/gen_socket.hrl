@@ -44,7 +44,7 @@
 % Protocol families
 -define(PF_UNSPEC,0).       % Unspecified.
 -define(PF_LOCAL, 1).       % Local to host (pipes and file-domain).
--define(PF_UNIX, ?PF_LOCAL) % POSIX name for PF_LOCAL.
+-define(PF_UNIX, ?PF_LOCAL). % POSIX name for PF_LOCAL.
 -define(PF_INET, 2).        % IP protocol family.
 -define(PF_INET6, 10).      % IP version 6.
 -define(PF_PACKET, 17).     % Packet family.
