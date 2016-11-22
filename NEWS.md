@@ -1,6 +1,11 @@
 gen_socket
 ==========
 
+Changes with 0.6.1 - 22 Nov 2016
+--------------------------------
+
+* fix PF_INET define
+
 Changes with 0.6.0 - 05 Oct 2016
 --------------------------------
 
