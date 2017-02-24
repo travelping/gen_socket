@@ -75,6 +75,7 @@ static ERL_NIF_TERM atom_error;
 // AF NAMES
 static ERL_NIF_TERM atom_unix;
 static ERL_NIF_TERM atom_inet4;
+static ERL_NIF_TERM atom_inet6;
 
 static ERL_NIF_TERM atom_sock_err;
 
@@ -136,6 +137,26 @@ sockaddr_inet4_to_term(ErlNifEnv* env, const struct sockaddr_in* addr)
 }
 
 static ERL_NIF_TERM
+sockaddr_inet6_to_term(ErlNifEnv* env, const struct sockaddr_in6* addr)
+{
+    const struct in6_addr *in6_addr = &addr->sin6_addr;
+
+    // {inet6, {A,B,C,D,E,F,G,H}, Port}
+    return enif_make_tuple3(env,
+                            atom_inet6,
+                            enif_make_tuple8(env,
+                                             enif_make_int(env, ntohs(in6_addr->s6_addr16[0])),
+					     enif_make_int(env, ntohs(in6_addr->s6_addr16[1])),
+                                             enif_make_int(env, ntohs(in6_addr->s6_addr16[2])),
+                                             enif_make_int(env, ntohs(in6_addr->s6_addr16[3])),
+                                             enif_make_int(env, ntohs(in6_addr->s6_addr16[4])),
+                                             enif_make_int(env, ntohs(in6_addr->s6_addr16[5])),
+                                             enif_make_int(env, ntohs(in6_addr->s6_addr16[6])),
+                                             enif_make_int(env, ntohs(in6_addr->s6_addr16[7]))),
+                            enif_make_int(env, (int) ntohs(addr->sin6_port)));
+}
+
+static ERL_NIF_TERM
 sockaddr_unknown_to_term(ErlNifEnv* env, const struct sockaddr_storage* addr, socklen_t addrlen)
 {
     ERL_NIF_TERM addr_binary;
@@ -154,6 +175,8 @@ sockaddr_to_term(ErlNifEnv* env, const struct sockaddr_storage* addr, const sock
             return sockaddr_unix_to_term(env, (struct sockaddr_un*) addr);
         case AF_INET:
             return sockaddr_inet4_to_term(env, (struct sockaddr_in*) addr);
+        case AF_INET6:
+            return sockaddr_inet6_to_term(env, (struct sockaddr_in6*) addr);
         default:
             return sockaddr_unknown_to_term(env, addr, addrlen);
     }
@@ -191,6 +214,51 @@ inet4_tuple_to_sockaddr(ErlNifEnv* env,
         addr->sin_addr = (struct in_addr) {
             .s_addr = ip[0] | ip[1] << 8 | ip[2] << 16 | ip[3] << 24
         };
+    }
+
+    *addrlen = required_addrlen;
+    return required_addrlen;
+}
+
+static socklen_t
+inet6_tuple_to_sockaddr(ErlNifEnv* env,
+                        int arity,
+                        const ERL_NIF_TERM* tuple,
+                        struct sockaddr_in6* addr,
+                        socklen_t* addrlen)
+{
+    socklen_t required_addrlen = (socklen_t) sizeof(struct sockaddr_in6);
+    const ERL_NIF_TERM* ip_tuple;
+    int ip_arity;
+    unsigned int port = 0;
+    unsigned int ip[8];
+
+    if (arity != 3
+        || !enif_get_tuple(env, tuple[1], &ip_arity, &ip_tuple)
+        || ip_arity != 8
+        || !enif_get_uint(env, ip_tuple[0], &ip[0]) || ip[0] > UINT16_MAX
+        || !enif_get_uint(env, ip_tuple[1], &ip[1]) || ip[1] > UINT16_MAX
+        || !enif_get_uint(env, ip_tuple[2], &ip[2]) || ip[2] > UINT16_MAX
+        || !enif_get_uint(env, ip_tuple[3], &ip[3]) || ip[3] > UINT16_MAX
+        || !enif_get_uint(env, ip_tuple[4], &ip[4]) || ip[4] > UINT16_MAX
+        || !enif_get_uint(env, ip_tuple[5], &ip[5]) || ip[5] > UINT16_MAX
+        || !enif_get_uint(env, ip_tuple[6], &ip[6]) || ip[6] > UINT16_MAX
+        || !enif_get_uint(env, ip_tuple[7], &ip[7]) || ip[7] > UINT16_MAX
+        || !enif_get_uint(env, tuple[2], &port) || port > UINT16_MAX) {
+        return 0;
+    }
+
+    if (*addrlen >= required_addrlen) {
+        addr->sin6_family = AF_INET6;
+        addr->sin6_port = htons((in_port_t) port);
+        addr->sin6_addr.s6_addr16[0] = htons(ip[0]);
+        addr->sin6_addr.s6_addr16[1] = htons(ip[1]);
+        addr->sin6_addr.s6_addr16[2] = htons(ip[2]);
+        addr->sin6_addr.s6_addr16[3] = htons(ip[3]);
+        addr->sin6_addr.s6_addr16[4] = htons(ip[4]);
+        addr->sin6_addr.s6_addr16[5] = htons(ip[5]);
+        addr->sin6_addr.s6_addr16[6] = htons(ip[6]);
+        addr->sin6_addr.s6_addr16[7] = htons(ip[7]);
     }
 
     *addrlen = required_addrlen;
@@ -242,6 +310,8 @@ term_to_sockaddr(ErlNifEnv* env, ERL_NIF_TERM term, struct sockaddr* addr, sockl
     if (enif_get_tuple(env, term, &arity, &tuple) && (arity > 1)) {
         if (enif_is_identical(tuple[0], atom_inet4)) {
             return inet4_tuple_to_sockaddr(env, arity, tuple, (struct sockaddr_in*) addr, addrlen);
+	} else if (enif_is_identical(tuple[0], atom_inet6)) {
+            return inet6_tuple_to_sockaddr(env, arity, tuple, (struct sockaddr_in6*) addr, addrlen);
         } else if (enif_is_identical(tuple[0], atom_unix)) {
             return unix_tuple_to_sockaddr(env, arity, tuple, (struct sockaddr_un*) addr, addrlen);
         } else {
@@ -261,6 +331,7 @@ int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_error   = enif_make_atom(env, "error");
     atom_unix    = enif_make_atom(env, "unix");
     atom_inet4   = enif_make_atom(env, "inet4");
+    atom_inet6   = enif_make_atom(env, "inet6");
     atom_sock_err = enif_make_atom(env, "sock_err");
     return 0;
 }
