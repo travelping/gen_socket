@@ -1,6 +1,12 @@
 gen_socket
 ==========
 
+Changes with 0.6.2 - 07 Apr 2017
+--------------------------------
+
+* support IPv6 sockets
+* support decoding and encoding of unknown protocol numbers
+
 Changes with 0.6.1 - 22 Nov 2016
 --------------------------------
 
