@@ -760,7 +760,8 @@ protocol_to_int(pim)      -> 103;
 protocol_to_int(comp)     -> 108;
 protocol_to_int(sctp)     -> 132;
 protocol_to_int(udplite)  -> 136;
-protocol_to_int(raw)      -> 255.
+protocol_to_int(raw)      -> 255;
+protocol_to_int({num, X}) -> X.
 
 protocol_to_atom(0)       -> ip;
 protocol_to_atom(1)       -> icmp;
@@ -790,9 +791,11 @@ protocol_to_atom(108)     -> comp;
 protocol_to_atom(132)     -> sctp;
 protocol_to_atom(136)     -> udplite;
 protocol_to_atom(255)     -> raw;
-protocol_to_atom(_X)      -> unknown.
+protocol_to_atom(X)       -> {num, X}.
 
 protocol(X) when is_atom(X)    -> protocol_to_int(X);
+protocol({num, P} = X)
+  when is_integer(P)           -> protocol_to_int(X);
 protocol(X) when is_integer(X) -> protocol_to_atom(X).
 
 arphdr(?ARPHRD_NETROM)             -> arphrd_netrom;
