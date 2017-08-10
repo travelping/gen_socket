@@ -160,7 +160,11 @@ gs_send_single_atom(GsState* state, ErlDrvTermData atom)
 		ERL_DRV_ATOM, atom,
 		ERL_DRV_TUPLE, 2
 	};
-	driver_output_term(state->drv_port, output, sizeof(output) / sizeof(ErlDrvTermData));
+#ifdef OLD_NIF
+    driver_output_term(state->drv_port, output, sizeof(output) / sizeof(ErlDrvTermData));
+#else
+    erl_drv_output_term(driver_mk_port(state->drv_port), output, sizeof(output) / sizeof(ErlDrvTermData));
+#endif
 }
 
 // -------------------------------------------------------------------------------------------------
