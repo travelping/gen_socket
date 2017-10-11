@@ -40,6 +40,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdint.h>
 #include <signal.h>
 #include <limits.h>
 #include <fcntl.h>
