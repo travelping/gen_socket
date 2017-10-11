@@ -1,6 +1,12 @@
 gen_socket
 ==========
 
+Changes with 0.6.3 - 11 Oct 2017
+--------------------------------
+
+* support Erlang 20.0 and 20.1
+* fix compilation warnings
+
 Changes with 0.6.2 - 07 Apr 2017
 --------------------------------
 
