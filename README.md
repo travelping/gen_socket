@@ -1,6 +1,7 @@
 gen_socket
 ===========
-[![Build Status](https://travis-ci.org/travelping/gen_socket.svg?branch=master)](https://travis-ci.org/travelping/gen_socket)
+[![Build Status][travis badge]][travis]
+[![Erlang Versions][erlang version badge]][travis]
 
 gen_socket is an Erlang socket interface which can be used to create
 gen_tcp and gen_udp based sockets with special properties.
@@ -29,4 +30,10 @@ Using rebar:
     # rebar get-deps
     # rebar compile
 
+<!-- Badges -->
+[travis]: https://travis-ci.org/travelping/gen_socket
+[travis badge]: https://img.shields.io/travis/travelping/gen_socket/master.svg?style=flat-square
+[coveralls]: https://coveralls.io/github/travelping/gen_socket
+[coveralls badge]: https://img.shields.io/coveralls/travelping/gen_socket/master.svg?style=flat-square
+[erlang version badge]: https://img.shields.io/badge/erlang-R15B03%20to%2020.1-blue.svg?style=flat-square
 
