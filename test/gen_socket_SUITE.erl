@@ -58,7 +58,8 @@ all() ->
      async_connect, async_connect_econnrefused,
      enotconn_errors, socket_options, getsockfd,
      client_tcp_recv, client_tcp_read, client_udp_recvfrom,
-     client_tcp_send, client_tcp_write, client_udp_sendto].
+     client_tcp_send, client_tcp_write, client_udp_sendto,
+     client_raw_udp_sendto].
 
 %% -------------------------------------------------------------------------------------------------
 %% -- Test Cases
@@ -343,3 +344,67 @@ client_udp_sendto(_Config) ->
                       ?MATCH({ok, {ClientIP, ClientPort, TestString}},
                              gen_udp:recv(ServerSocket, byte_size(TestString), 1000))
                   end, TestStrings).
+
+client_raw_udp_sendto(_Config) ->
+    TestStrings = [<<"test">>, <<"test test">>],
+
+    %% open server socket
+    ServerIP = {127,0,0,1},
+    {ok, ServerSocket} = gen_udp:open(0, [{ip, ServerIP}, {active, false}, binary]),
+    {ok, ServerPort} = inet:port(ServerSocket),
+    ServerAddress = {inet4, ServerIP, ServerPort},
+    
+    %% open redirector server socket
+    {ok, RedirectorServerSocket} = gen_socket:socket(inet, dgram, udp),
+    ok = gen_socket:bind(RedirectorServerSocket, {inet4, {127,0,0,1}, 0}),
+    {inet4, RedirectorServerIP, RedirectorServerPort} = gen_socket:getsockname(RedirectorServerSocket),
+
+    %% open redirector sender socket
+    {ok, RedirectorSenderSocket} = gen_socket:socket(inet, raw, udp),
+    ok = gen_socket:setsockopt(RedirectorSenderSocket, sol_ip, hdrincl, true),
+    ok = gen_socket:bind(RedirectorSenderSocket, {inet4, {127,0,0,1}, 0}),
+
+    %% open server socket
+    ClientIP = {127,0,0,1},
+    {ok, ClientSocket} = gen_udp:open(0, [{ip, ClientIP}, {active, false}, binary]),
+    {ok, ClientPort} = inet:port(ClientSocket),
+    ClientAddress = {inet4, {127,0,0,1}, ClientPort},
+
+    %% send test strings from the client to the server through redirector
+    %% server should think that it gets packet directly from client
+    %% redirector has two sockets: 
+    %% 1) for reading udp
+    %% 2) for sending raw ipv4
+    lists:foreach(fun (TestString) ->
+                      ?MATCH(ok, gen_udp:send(ClientSocket, RedirectorServerIP, RedirectorServerPort, TestString)),
+
+                      wait_for_output(RedirectorServerSocket, 20),
+                      ?MATCH({ok, ClientAddress, TestString}, gen_socket:recvfrom(RedirectorServerSocket)),
+
+                      Packet = create_ipv4_udp_packet(ClientIP, ClientPort, ServerIP, ServerPort, TestString),
+
+                      wait_for_output(RedirectorSenderSocket, 20),
+                      ?MATCH({ok, <<>>}, gen_socket:sendto(RedirectorSenderSocket, ServerAddress, Packet)),
+
+                      ?MATCH({ok, {ClientIP, ClientPort, TestString}},
+                             gen_udp:recv(ServerSocket, byte_size(TestString), 1000))
+                  end, TestStrings).
+
+optlen(HL) -> (HL - 5) * 4.
+create_ipv4_udp_packet({SA1, SA2, SA3, SA4}, SPort, {DA1, DA2, DA3, DA4}, DPort, Payload) ->
+    % UDP
+    ULen = 8 + byte_size(Payload),
+    USum = 0,
+    UDP = <<SPort:16, DPort:16, ULen:16, USum:16, Payload/binary>>,
+    % IPv4
+    HL = 5, DSCP = 0, ECN = 0, Len = 160 + optlen(HL) + byte_size(UDP),
+    Id = 0, DF = 0, MF = 0, Off = 0,
+    TTL = 64, Protocol = 17, Sum = 0,
+    Opt = <<>>,
+    % Packet
+    <<4:4, HL:4, DSCP:6, ECN:2, Len:16, 
+      Id:16, 0:1, DF:1, MF:1, Off:13, 
+      TTL:8, Protocol:8, Sum:16,
+      SA1:8, SA2:8, SA3:8, SA4:8, 
+      DA1:8, DA2:8, DA3:8, DA4:8, 
+      Opt:(optlen(HL))/binary, UDP/binary>>.
