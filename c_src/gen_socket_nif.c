@@ -45,6 +45,7 @@
 #include <limits.h>
 #include <fcntl.h>
 #include <err.h>
+#include <errno.h>
 #include <sched.h>
 
 #include <unistd.h>
@@ -55,8 +56,6 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <net/if.h>
-
-#include <sys/errno.h>
 
 #include <sys/ioctl.h>
 

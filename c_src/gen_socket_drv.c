@@ -38,7 +38,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <error.h>
 
 // addresses
 #include <sys/un.h>
