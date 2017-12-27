@@ -35,5 +35,5 @@ Using rebar:
 [travis badge]: https://img.shields.io/travis/travelping/gen_socket/master.svg?style=flat-square
 [coveralls]: https://coveralls.io/github/travelping/gen_socket
 [coveralls badge]: https://img.shields.io/coveralls/travelping/gen_socket/master.svg?style=flat-square
-[erlang version badge]: https://img.shields.io/badge/erlang-R15B03%20to%2020.1-blue.svg?style=flat-square
+[erlang version badge]: https://img.shields.io/badge/erlang-r16%20to%2020.1-blue.svg?style=flat-square
 
