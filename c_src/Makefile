@@ -9,8 +9,10 @@ clean:
 
 ../priv/lib/gen_socket_nif.so: gen_socket_nif.o
 	(test -d ../priv/lib || mkdir -p ../priv/lib)
-	$(CC) $(CFLAGS) $(LDFLAGS) gen_socket_nif.o -o ../priv/lib/gen_socket_nif.so -shared -lei -lerl_interface
+	$(CC) $(CFLAGS) $(LDFLAGS) gen_socket_nif.o -o ../priv/lib/gen_socket_nif.so -shared -lei
+#-lerl_interface
 
 ../priv/lib/gen_socket.so: gen_socket_drv.o
 	(test -d ../priv/lib || mkdir -p ../priv/lib)
-	$(CC) $(CFLAGS) $(LDFLAGS) gen_socket_drv.o -o ../priv/lib/gen_socket.so -shared -lei -lerl_interface
+	$(CC) $(CFLAGS) $(LDFLAGS) gen_socket_drv.o -o ../priv/lib/gen_socket.so -shared -lei
+#-lerl_interface
