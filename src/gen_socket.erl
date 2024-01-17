@@ -89,8 +89,23 @@
 
 -type posix_error() :: file:posix().
 
+get_libdir() ->
+    case application:get_env(gen_socket, libdir) of
+        {ok, LibDir} ->
+            LibDir;
+        undefined ->
+            CodePath = filename:dirname(code:which(?MODULE)),
+            case filelib:is_dir(CodePath) of
+                true ->
+                    filename:join([CodePath, "..", "priv", "lib"]);
+                false ->
+                    error_logger:error_msg("Default Libdir ~p is not a directory, if you are running an escript set gen_socket application env 'libdir'", [CodePath]),
+                    error({load_nif, CodePath})
+            end
+    end.
+
 init() ->
-    LibDir = filename:join([filename:dirname(code:which(?MODULE)), "..", "priv", "lib"]),
+    LibDir = get_libdir(),
 
     %% load our nif library
     case erlang:load_nif(filename:join(LibDir, "gen_socket_nif"), 0) of
@@ -635,7 +650,7 @@ decode_sockopt(?SOL_SOCKET, ?SO_LINGER, <<OnOff:32/native-integer, Linger:32/nat
     {OnOff /= 0, Linger};
 decode_sockopt(_, _, OptValue) ->
     OptValue.
-    
+
 
 %% Protocol family (aka domain)
 family_to_int(unspec)     -> 0;
